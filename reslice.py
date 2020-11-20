@@ -13,6 +13,7 @@ import PIL
 from sklearn.decomposition import PCA
 from skimage.measure import compare_ssim
 
+#testGit
 
 def get_pixels_hu(scans):
     image = np.stack([s.pixel_array for s in scans])
@@ -110,6 +111,9 @@ imgB = img3d2[img_shape2[0]//2, :, :]
 im = np.array(imgA*1).astype('uint8')
 imA_gray = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 imB_gray = cv2.normalize(src=imgB, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+
+#cv2.rectangle(imA_gray,(384,0),(510,128),(0,255,0),3)
+#print(imA_gray[0:50,0:50])
 
 crop_imgA = imA_gray[:, 200:800]
 crop_imgB = imB_gray[:, 100:700]
