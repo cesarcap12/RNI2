@@ -1,0 +1,12 @@
+pydicom
+numpy
+
+[dev]
+check-manifest
+sphinx
+sphinx-autobuild
+mock
+
+[test]
+coverage
+pytest
