@@ -52,8 +52,8 @@ def load_CT(ct_dir,files,slices):
 
 
 def get_ct_aspects(slices):
-    ps = sliceS[0].PixelSpacing
-    ss = sliceS[0].SliceThickness
+    ps = slices[0].PixelSpacing
+    ss = slices[0].SliceThickness
     ax_aspect = ps[1] / ps[0]
     sag_aspect = ps[1] / ss
     cor_aspect = ss / ps[0]
@@ -81,64 +81,102 @@ def get_img_shape(slices):
     return img_shape
 
 
+def get_cor_mid_slice(slices):
+    shape_img = get_img_shape(slices)
+    img = get_3d_array(slices)
+    img_c1 = img[:, shape_img[0] // 2, :]
+    img_c2 = img[:, :, shape_img[2]//2]
+    img_c1_gray = cv2.normalize(src=img_c1, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+    img_c2_gray = cv2.normalize(src=img_c2, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+
+    i1_img_c = np.column_stack(np.where(img_c1_gray > 60))
+    i1_img_c = i1_img_c[:, 0]
+    ix1 = i1_img_c[0]
+    i2_mean_col = np.column_stack(np.mean(img_c2_gray, axis=0))
+    i2_img_c = np.where(i2_mean_col > 35)
+    ix2_img_c2 = i2_img_c[-1]
+    ix2 = ix2_img_c2[-1]
+
+    cor_mid_slice = img[(ix1+ix2)//2, :, :]
+    cor_mid_slice_gray = cv2.normalize(src=cor_mid_slice, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+    return cor_mid_slice_gray
+
+
 # load the DICOM files
 FILES = []
 FILES2 = []
+FILES3 = []
 SLICES = []
 SLICES2 = []
-CT_DIR  = '/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
-CT_DIR2 = '/home/cesarpuga/CT-Scans/416818_GA413_M_49J/18030/12/'
+SLICES3 = []
+CT_F73J = '/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
+CT_M49J = '/home/cesarpuga/CT-Scans/416818_GA413_M_49J/18030/12/'
+CT_F79J = '/home/cesarpuga/CT-Scans/704619_GA427_M_70J/18344/3/'
 
 # load specific CT Scan
-sliceS  = load_CT(CT_DIR, FILES, SLICES)
-sliceS2 = load_CT(CT_DIR2, FILES2, SLICES2)
+slices_F73J = load_CT(CT_F73J, FILES, SLICES)
+slices_M49J = load_CT(CT_M49J, FILES2, SLICES2)
+slices_F79J = load_CT(CT_F79J, FILES3, SLICES3)
 
 # get pixel aspects, assuming all slices are the same
-ax_aspect, sag_aspect, cor_aspect = get_ct_aspects(sliceS)
-ax_aspect2, sag_aspect2, cor_aspect2 = get_ct_aspects(sliceS2)
+ax_aspect, sag_aspect, cor_aspect = get_ct_aspects(slices_F73J)
+ax_aspect2, sag_aspect2, cor_aspect2 = get_ct_aspects(slices_M49J)
+ax_aspect3, sag_aspect3, cor_aspect3 = get_ct_aspects(slices_F79J)
 
-# get 3D array and img_shape
-img3d = get_3d_array(sliceS)
-img_shape = get_img_shape(sliceS)
-img3d2 = get_3d_array(sliceS2)
-img_shape2 = get_img_shape(sliceS2)
+# # get 3D array and img_shape
+# img3d = get_3d_array(sliceS)
+# img_shape = get_img_shape(sliceS)
+# img3d2 = get_3d_array(sliceS2)
+# img_shape2 = get_img_shape(sliceS2)
+#
+# # img acquisition
+# imgA = img3d[img_shape[0]//2, :, :]
+# imgB = img3d2[img_shape2[0]//2, :, :]
+# imgC = img3d[:, img_shape[0]//2, :]
+# imgC2 = img3d[:, :, img_shape[2]//2]
+#
+# # np arrays to grayscale cv2 images
+# im = np.array(imgA*1).astype('uint8')
+# imA_gray = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+# imB_gray = cv2.normalize(src=imgB, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+# imA_gray_thorax = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+# imC_gray = cv2.normalize(src=imgC, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+# imC2_gray = cv2.normalize(src=imgC2, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 
-imgA = img3d[img_shape[0]//2, :, :]
-print(img_shape)
-print(img_shape2)
-imgB = img3d2[img_shape2[0]//2, :, :]
+# get coronal mid slices
+test_mid_cor_slice_A = get_cor_mid_slice(slices_M49J)
+test_mid_cor_slice_B = get_cor_mid_slice(slices_F73J)
+test_mid_cor_slice_C = get_cor_mid_slice(slices_F79J)
 
-im = np.array(imgA*1).astype('uint8')
-imA_gray = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
-imB_gray = cv2.normalize(src=imgB, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+# SSIM score
+crop_imgA = test_mid_cor_slice_A[:, 100:700]
+crop_imgB = test_mid_cor_slice_B[:, 150:750]
+crop_imgC = test_mid_cor_slice_C[:, 150:750]
 
-#cv2.rectangle(imA_gray,(384,0),(510,128),(0,255,0),3)
-#print(imA_gray[0:50,0:50])
+# CA comparison
+(scoreCA, diffCA) = compare_ssim(crop_imgA, crop_imgB, full=True)
+diff = (diffCA * 255).astype("uint8")
+print("SSIM A-B: {}".format(scoreCA))
+# CB comparison
+(scoreCB, diffCB) = compare_ssim(crop_imgA, crop_imgC, full=True)
+diffCB = (diffCB * 255).astype("uint8")
+print("SSIM A-C: {}".format(scoreCB))
 
-crop_imgA = imA_gray[:, 200:800]
-crop_imgB = imB_gray[:, 100:700]
-
-# 5. Compute the Structural Similarity Index (SSIM) between the two
-#    images, ensuring that the difference image is returned
-(score, diff) = compare_ssim(crop_imgA, crop_imgB, full=True)
-diff = (diff * 255).astype("uint8")
-
-# 6. You can print only the score if you want
-print("SSIM: {}".format(score))
-
-cv2.imshow("cropped", crop_imgB)
-cv2.imshow("cropped", crop_imgA)
-cv2.waitKey(0)
+# Plot mid coronal slice
+# cv2.imshow("cropped", test_mid_cor_slice_B)
+# cv2.waitKey(0)
 
 #window_name = 'imageA'
 
 # Using cv2.imshow() method
 # Displaying the image
-#cv2.imshow(window_name, imB_gray)
+cv2.imshow("imgA", crop_imgA)
+cv2.imshow("imgB", crop_imgB)
+cv2.imshow("imgC", crop_imgC)
 
 # waits for user to press any key
 # (this is necessary to avoid Python kernel form crashing)
-#cv2.waitKey(0)
+cv2.waitKey(0)
 
 # closing all open windows
 
