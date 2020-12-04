@@ -5,6 +5,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import math
 from collections import defaultdict
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from skimage import measure
+import scipy.ndimage
+from plotly.offline import iplot
+from plotly.tools import FigureFactory as FF
 import csv
 import time
 import sys
@@ -188,13 +193,14 @@ def search_feasible_path(img_r,origin_l,o):
                     x_loc = math.floor(x_vxl + np.cos(np.deg2rad(theta))*current_path_len)
                     z_loc = math.floor(z_vxl + np.sin(np.deg2rad(theta))*current_path_len)
                     y_loc = math.floor(y_vxl + np.sin(np.deg2rad(alpha))*current_path_len)
-                    print('x,z,y: ', x_loc, z_loc, y_loc, '/n', "theta: ", theta, "alpha: ", alpha, 'HU: ', img_r[z_loc, x_loc, y_loc])
-                    if -800 < img_r[z_loc, x_loc, y_loc] < 300:
+                    #print('x,z,y: ', x_loc, z_loc, y_loc, '/n', "theta: ", theta, "alpha: ", alpha, 'HU: ', img_r[z_loc, x_loc, y_loc])
+                    if -900 < img_r[z_loc, x_loc, y_loc] < 300:
                         current_feasible_path.append([x_loc, y_loc, z_loc])
                         current_path_len += 1
-                    elif img_r[z_loc, x_loc, y_loc] < -800:
+                    elif img_r[z_loc, x_loc, y_loc] < -900:
                         i+=1
                         dict_feasible_paths['key'+str(i)] = current_feasible_path
+                        #print(current_feasible_path)
                         #feasible_paths.append(current_feasible_path)
 
                         valid_path = False
@@ -216,7 +222,7 @@ def search_feasible_path(img_r,origin_l,o):
                     if -800 < img_r[z_loc, x_loc, y_loc] < 300:
                         current_feasible_path.append([x_loc, y_loc, z_loc])
                         current_path_len += 1
-                    elif -800 < img_r[z_loc, x_loc, y_loc]:
+                    elif -900 < img_r[z_loc, x_loc, y_loc]:
                         #feasible_paths.append(current_feasible_path)
                         i+=1
                         dict_feasible_paths['key'+str(i)] = current_feasible_path
@@ -226,10 +232,73 @@ def search_feasible_path(img_r,origin_l,o):
     return dict_feasible_paths
 
 
+def get_shortest_paths(x):
+    return [k for k in x.keys() if len(x.get(k))==min([len(n) for n in x.values()])]
+
+# def get_n_shortest_paths(paths,n):
+#     shortest_paths = defaultdict(dict)
+#     i = 0
+#     while i < n:
+#         min_list = min([len(ls) for ls in paths.values()])
+#         min_key = min(len(paths), key=paths.get)
+#         paths.pop(min_key, None)
+#         shortest_paths['path'+str(i)] = min_list
+#         n += 1
+#     return shortest_paths
+
+
+def make_mesh(image, threshold=-300, step_size=1):
+    print("Transposing surface")
+    p = image.transpose(2, 1, 0)
+
+    print("Calculating surface")
+    verts, faces, norm, val = measure.marching_cubes(p, threshold, step_size=step_size, allow_degenerate=True)
+    return verts, faces
+
+
+def plotly_3d(verts, faces):
+    x, y, z = zip(*verts)
+
+    print ("Drawing")
+
+    # Make the colormap single color since the axes are positional not intensity.
+    #    colormap=['rgb(255,105,180)','rgb(255,255,51)','rgb(0,191,255)']
+    colormap = ['rgb(236, 236, 212)', 'rgb(236, 236, 212)']
+
+    fig = FF.create_trisurf(x=x,
+                            y=y,
+                            z=z,
+                            plot_edges=False,
+                            colormap=colormap,
+                            simplices=faces,
+                            backgroundcolor='rgb(64, 64, 64)',
+                            title="Interactive Visualization")
+    iplot(fig)
+
+
+def plt_3d(verts, faces):
+    print ("Drawing")
+    x, y, z = zip(*verts)
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111, projection='3d')
+
+    # Fancy indexing: `verts[faces]` to generate a collection of triangles
+    mesh = Poly3DCollection(verts[faces], linewidths=0.05, alpha=1)
+    face_color = [1, 1, 0.9]
+    mesh.set_facecolor(face_color)
+    ax.add_collection3d(mesh)
+
+    ax.set_xlim(0, max(x))
+    ax.set_ylim(0, max(y))
+    ax.set_zlim(0, max(z))
+    ax.set_facecolor((0.7, 0.7, 0.7))
+    plt.show()
+
+
 time_a = time.clock()
 # CT scan directory
 CT_F73J = '/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
-output_path = working_path = "/home/cesarpuga/PycharmProjects/RNI/outputData/"
+output_path = working_path = "/home/cesarpuga/PycharmProjects/RNI/"
 output_path2 = "/home/cesarpuga/PycharmProjects/RNI/outputData/"
 
 # execute inital functions to convert dicom to np array
@@ -261,14 +330,13 @@ print("x,y,z vector shape: ", len(x), len(y), len(z))
 # The array is sized based on 'ConstPixelDims'
 ArrayDicom = np.zeros(ConstPixelDims, dtype=RefDs.pixel_array.dtype)
 
-id=1
+id1 = 1
 patient = load_scan(CT_F73J)
 imgs = get_pixels_hu(patient)
 
-#save, uncomment to save if changes are performed
-#np.save(output_path + "fullimages_%d.npy" % (id), imgs)
-
-file_used=output_path+"fullimages_%d.npy" % id
+# save, uncomment to save if changes are performed
+# np.save(output_path + "fullimages_%d.npy" % (id1), imgs)
+file_used=output_path+"fullimages_%d.npy" % id1
 imgs_to_process = np.load(file_used).astype(np.float64)
 
 # Plot histogram of HU units, relevant values: Bone>700 , Air(Skin border)=-1000 [HU's], normally Max/Min values in CTs
@@ -279,14 +347,14 @@ imgs_to_process = np.load(file_used).astype(np.float64)
 
 # Resample voxel array to match actual CT scan Dimensions in [mm]
 print("Shape before resampling\t", imgs_to_process.shape)
-# imgs_after_resamp, spacing = resample(imgs_to_process, patient, [1,1,1])
+#imgs_after_resamp, spacing = resample(imgs_to_process, patient, [1,1,1])
 # print("Shape after resampling\t", imgs_after_resamp.shape)
 # print("image after resampling\t", imgs_after_resamp)
 # print("image after resampling Dtype\t", type(imgs_after_resamp))
 
-id=2
-# np.save(output_path + "fullimages_%d.npy" % (id), imgs_after_resamp)
-file_used= output_path+"fullimages_%d.npy" % id
+id2 = 2
+#np.save(output_path + "fullimages_%d.npy" % id2, imgs_after_resamp)
+file_used= output_path+"fullimages_%d.npy" % id2
 imgs_after_resamp = np.load(file_used).astype(np.float64)
 print("Shape after resampling\t", imgs_after_resamp.shape)
 # print("image after resampling\t", imgs_after_resamp)
@@ -306,33 +374,29 @@ origin_hu = imgs_after_resamp[525,240,145]
 origin_loc = [525,240,145]
 print("HU intensity of Origin= ", origin_hu)
 
+# origin_position = origin_pos(origin_loc,imgs_after_resamp)
+# print("origin position: ", origin_position)
 
-def origin_pos(img_r, origin_l):
-
-    if origin_l[2] > len(img_r[2]):
-        position = 'Right'
-    else:
-        position = 'Left'
-
-    return position
-
-
-#origin_position = origin_pos(origin_loc,imgs_after_resamp)
-#print("origin position: ", origin_position)
-
-
-
-
-
+# Time Calculations
 t0 = time.clock()
 paths = search_feasible_path(imgs_after_resamp, 'Left', [525,240,145])
 t1 = time.clock() - t0
 time_b = time.clock()
+
 print("Time elapsed to search 1 path: ", t1) # CPU seconds elapsed (floating point)
 print('time elapsed in total:', time_b-time_a)
 print('paths ', len(paths))
-print('paths ', paths)
+#print('paths ', paths)
+print('paths type: ', type(paths))
+# shortest_paths = get_shortest_paths(paths)
+# print(len(shortest_paths))
 
-#with open('Paths', 'w') as f:
+# for i in range(len(shortest_paths)):
+#    print(paths[str(shortest_paths[i])])
+
+# with open('Paths', 'w') as f:
 #    write = csv.writer(f)
 #    write.writerows(paths)
+
+v, f = make_mesh(imgs_after_resamp, 250)
+plt_3d(v, f)
