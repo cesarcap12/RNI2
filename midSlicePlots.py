@@ -1,18 +1,21 @@
 import pydicom
 import numpy as np
 import matplotlib.pyplot as plt
+import math
 import sys
 import glob
 import os
+from scipy.stats import mode
 from scipy import ndimage as ndi
 from skimage import feature
+from skimage import measure
 import argparse
 import cv2
 from PIL import Image
 import PIL
 from sklearn.decomposition import PCA
 from skimage.measure import compare_ssim
-
+import imutils
 #testGit
 
 def get_pixels_hu(scans):
@@ -102,6 +105,21 @@ def get_cor_mid_slice(slices):
     return cor_mid_slice_gray
 
 
+# def get_table_height(xy_plane):
+#     avg =0
+#     for row in range(xy_plane.shape[1], 0, -1):
+#         avg = np.mean(xy_plane[row], axis=0)
+#         print('row', row, 'avg', avg)
+#     if avg >= 30:
+#         height = row
+#     elif avg>30:
+#         break
+#     else:
+#         continue
+#
+#     return height
+
+
 # load the DICOM files
 FILES = []
 FILES2 = []
@@ -109,7 +127,8 @@ FILES3 = []
 SLICES = []
 SLICES2 = []
 SLICES3 = []
-CT_F73J = '/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
+CT_F73J = '/home/cesarpuga/CT-Scans/380916_RA_M_81J/14400/7/'
+#'/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
 CT_M49J = '/home/cesarpuga/CT-Scans/416818_GA413_M_49J/18030/12/'
 CT_F79J = '/home/cesarpuga/CT-Scans/704619_GA427_M_70J/18344/3/'
 
@@ -124,23 +143,26 @@ ax_aspect2, sag_aspect2, cor_aspect2 = get_ct_aspects(slices_M49J)
 ax_aspect3, sag_aspect3, cor_aspect3 = get_ct_aspects(slices_F79J)
 
 # # get 3D array and img_shape
-# img3d = get_3d_array(sliceS)
-# img_shape = get_img_shape(sliceS)
-# img3d2 = get_3d_array(sliceS2)
-# img_shape2 = get_img_shape(sliceS2)
+img3d = get_3d_array(slices_F73J)
+img_shape = get_img_shape(slices_F73J)
+#img3d2 = get_3d_array(sliceS2)
+#img_shape2 = get_img_shape(sliceS2)
 #
 # # img acquisition
 # imgA = img3d[img_shape[0]//2, :, :]
 # imgB = img3d2[img_shape2[0]//2, :, :]
 # imgC = img3d[:, img_shape[0]//2, :]
-# imgC2 = img3d[:, :, img_shape[2]//2]
+imgC = img3d[:, :, 355] #img_shape[2]//2
+table_height = 330
+imgC[table_height:,:] = 0
+#print('shape imC: ', imgC.shape[1])
 #
 # # np arrays to grayscale cv2 images
 # im = np.array(imgA*1).astype('uint8')
 # imA_gray = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 # imB_gray = cv2.normalize(src=imgB, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 # imA_gray_thorax = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
-# imC_gray = cv2.normalize(src=imgC, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
+imC_gray = cv2.normalize(src=imgC, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 # imC2_gray = cv2.normalize(src=imgC2, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 
 # get coronal mid slices
@@ -170,9 +192,9 @@ print("SSIM A-C: {}".format(scoreCB))
 
 # Using cv2.imshow() method
 # Displaying the image
-cv2.imshow("imgA", crop_imgA)
-cv2.imshow("imgB", crop_imgB)
-cv2.imshow("imgC", crop_imgC)
+# cv2.imshow("imgA", crop_imgA)
+# cv2.imshow("imgB", crop_imgB)
+# cv2.imshow("imgC", crop_imgC)
 
 # waits for user to press any key
 # (this is necessary to avoid Python kernel form crashing)
@@ -181,10 +203,10 @@ cv2.waitKey(0)
 # closing all open windows
 
 # #get edges of image
-# edges1 = img3d[img_shape[0]//2, :, :]
-# edges2 = feature.canny(img3d[img_shape[0]//2, :, :], sigma=4)
-#
-# #plot 3 orthogonal slices
+edges1 = img3d[img_shape[0]//3, :, :]
+edges2 = feature.canny(img3d[img_shape[0]//2, :, :], sigma=4)
+
+#plot 3 orthogonal slices
 # a1 = plt.subplot(2, 2, 1)
 # plt.imshow(img3d[:, :, img_shape[2]//2],cmap=plt.cm.bone)
 # a1.set_aspect(ax_aspect)
@@ -197,11 +219,42 @@ cv2.waitKey(0)
 # plt.imshow(img3d[img_shape[0]//2, :, :], cmap=plt.cm.bone)
 # a3.set_aspect(cor_aspect)
 #
-# a3 = plt.subplot(2, 2, 4)
-# plt.imshow(edges2, cmap=plt.cm.bone)
-# a3.set_aspect(cor_aspect)
-#
+# a4 = plt.subplot(2, 2, 4)
+# plt.imshow(imC_gray, cmap=plt.cm.bone)
+# a4.set_aspect(cor_aspect)
+# #
 # plt.show()
+
+## Contour Finding: Skin
+
+contours = measure.find_contours(imgC, 200)
+#print('contours', contours)
+
+# remove table ALWAYS biggest contour
+#imax = (max((len(l), i) for i, l in enumerate(contours))[1])
+#print('imax= ', imax)
+#contours.pop(imax)
+# next biggest contour is skin in xy plane
+pxl_spacing = slices_F73J[0].PixelSpacing
+print("pxl_spacing", pxl_spacing)
+contourMax = max(contours, key=len)
+print(type(contourMax))
+contourMax_r = np.round(contourMax*pxl_spacing[0]).astype(int)
+contourMax_X = contourMax_r[:, 0]
+contourMax_Y = contourMax_r[:, 1]
+print("contourMax", contourMax_r)
+print("1st", contourMax_r[0, 0])
+# Display the image and plot all contours found
+fig, ax = plt.subplots()
+ax.imshow(imC_gray, cmap=plt.cm.gray)
+
+
+ax.plot(contourMax[:, 1], contourMax[:, 0], linewidth=2)
+
+#ax.axis('image Gray')
+ax.set_xticks([])
+ax.set_yticks([])
+plt.show()
 
 # ## TODO Circle detection for future Rib Segmentation
 #

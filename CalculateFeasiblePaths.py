@@ -10,19 +10,9 @@ from skimage import measure
 import scipy.ndimage
 from plotly.offline import iplot
 from plotly.tools import FigureFactory as FF
-import csv
 import time
-import sys
-import glob
 import os
-from scipy import ndimage as ndi
-from skimage import feature
-import argparse
 import cv2
-from PIL import Image
-import PIL
-from sklearn.decomposition import PCA
-from skimage.measure import compare_ssim
 import scipy.ndimage
 
 
@@ -47,7 +37,7 @@ def load_ct(ct_dir):
 
 def load_scan(path):
     slices = [pydicom.read_file(path + '/' + s) for s in os.listdir(path)]
-    slices.sort(key=lambda x: int(x.InstanceNumber))
+    slices.sort(key=lambda x: int(x.SliceLocation))
     try:
         slice_thickness = np.abs(slices[0].ImagePositionPatient[2] - slices[1].ImagePositionPatient[2])
     except:
@@ -194,7 +184,7 @@ def search_feasible_path(img_r,origin_l,o):
                     z_loc = math.floor(z_vxl + np.sin(np.deg2rad(theta))*current_path_len)
                     y_loc = math.floor(y_vxl + np.sin(np.deg2rad(alpha))*current_path_len)
                     #print('x,z,y: ', x_loc, z_loc, y_loc, '/n', "theta: ", theta, "alpha: ", alpha, 'HU: ', img_r[z_loc, x_loc, y_loc])
-                    if -900 < img_r[z_loc, x_loc, y_loc] < 300:
+                    if -900 < img_r[z_loc, x_loc, y_loc] < 250:
                         current_feasible_path.append([x_loc, y_loc, z_loc])
                         current_path_len += 1
                     elif img_r[z_loc, x_loc, y_loc] < -900:
@@ -334,6 +324,7 @@ id1 = 1
 patient = load_scan(CT_F73J)
 imgs = get_pixels_hu(patient)
 
+
 # save, uncomment to save if changes are performed
 # np.save(output_path + "fullimages_%d.npy" % (id1), imgs)
 file_used=output_path+"fullimages_%d.npy" % id1
@@ -347,13 +338,13 @@ imgs_to_process = np.load(file_used).astype(np.float64)
 
 # Resample voxel array to match actual CT scan Dimensions in [mm]
 print("Shape before resampling\t", imgs_to_process.shape)
-#imgs_after_resamp, spacing = resample(imgs_to_process, patient, [1,1,1])
+# imgs_after_resamp, spacing = resample(imgs_to_process, patient, [1,1,1])
 # print("Shape after resampling\t", imgs_after_resamp.shape)
 # print("image after resampling\t", imgs_after_resamp)
 # print("image after resampling Dtype\t", type(imgs_after_resamp))
 
 id2 = 2
-#np.save(output_path + "fullimages_%d.npy" % id2, imgs_after_resamp)
+# np.save(output_path + "fullimages_%d.npy" % id2, imgs_after_resamp)
 file_used= output_path+"fullimages_%d.npy" % id2
 imgs_after_resamp = np.load(file_used).astype(np.float64)
 print("Shape after resampling\t", imgs_after_resamp.shape)
@@ -370,9 +361,10 @@ img_cor_roi_gray = cv2.normalize(src=img_cor_roi, dst=None, alpha=0, beta=255, n
 
 
 # feasible path brute force search begins
-origin_hu = imgs_after_resamp[525,240,145]
+origin_hu = imgs_after_resamp[525, 240, 145]
 origin_loc = [525,240,145]
 print("HU intensity of Origin= ", origin_hu)
+print('Calculating Paths...')
 
 # origin_position = origin_pos(origin_loc,imgs_after_resamp)
 # print("origin position: ", origin_position)
@@ -386,10 +378,18 @@ time_b = time.clock()
 print("Time elapsed to search 1 path: ", t1) # CPU seconds elapsed (floating point)
 print('time elapsed in total:', time_b-time_a)
 print('paths ', len(paths))
-#print('paths ', paths)
+# print('paths ', paths)
 print('paths type: ', type(paths))
 # shortest_paths = get_shortest_paths(paths)
 # print(len(shortest_paths))
+
+target_entry_pts = []
+
+for key in paths.keys():
+    target_entry_pts[key] = paths.get(key[-1])
+    target_entry_pts[key+1] = paths.get(key[0])
+
+print(target_entry_pts)
 
 # for i in range(len(shortest_paths)):
 #    print(paths[str(shortest_paths[i])])
@@ -398,5 +398,5 @@ print('paths type: ', type(paths))
 #    write = csv.writer(f)
 #    write.writerows(paths)
 
-v, f = make_mesh(imgs_after_resamp, 250)
-plt_3d(v, f)
+# v, f = make_mesh(imgs_after_resamp, 250)
+# plt_3d(v, f)
