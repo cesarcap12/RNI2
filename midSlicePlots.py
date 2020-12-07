@@ -127,8 +127,7 @@ FILES3 = []
 SLICES = []
 SLICES2 = []
 SLICES3 = []
-CT_F73J = '/home/cesarpuga/CT-Scans/380916_RA_M_81J/14400/7/'
-#'/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
+CT_F73J = '/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
 CT_M49J = '/home/cesarpuga/CT-Scans/416818_GA413_M_49J/18030/12/'
 CT_F79J = '/home/cesarpuga/CT-Scans/704619_GA427_M_70J/18344/3/'
 
@@ -145,6 +144,7 @@ ax_aspect3, sag_aspect3, cor_aspect3 = get_ct_aspects(slices_F79J)
 # # get 3D array and img_shape
 img3d = get_3d_array(slices_F73J)
 img_shape = get_img_shape(slices_F73J)
+print('img shape:', img_shape)
 #img3d2 = get_3d_array(sliceS2)
 #img_shape2 = get_img_shape(sliceS2)
 #
@@ -152,7 +152,7 @@ img_shape = get_img_shape(slices_F73J)
 # imgA = img3d[img_shape[0]//2, :, :]
 # imgB = img3d2[img_shape2[0]//2, :, :]
 # imgC = img3d[:, img_shape[0]//2, :]
-imgC = img3d[:, :, 355] #img_shape[2]//2
+imgC = img3d[:, :, 8] #img_shape[2]//2
 table_height = 330
 imgC[table_height:,:] = 0
 #print('shape imC: ', imgC.shape[1])
@@ -248,13 +248,44 @@ print("1st", contourMax_r[0, 0])
 fig, ax = plt.subplots()
 ax.imshow(imC_gray, cmap=plt.cm.gray)
 
+contours_max = []
 
+# for layer in range(img_shape[2]):
+#     img3d[table_height:, :, layer] = 0
+#     contours_slice = measure.find_contours(img3d[:, :, layer], 200)
+#     x = max(contours_slice, key=len)
+#     #contours_max = np.append(contours_max, max(contours_slice, key=len))
+#     x = list(np.round(x * pxl_spacing[0]).astype(int))
+#     contours_max.append(x)
+#
+# print('ct max len', len(contours_max))
+
+# PLOT CONTOURS
 ax.plot(contourMax[:, 1], contourMax[:, 0], linewidth=2)
-
 #ax.axis('image Gray')
 ax.set_xticks([])
 ax.set_yticks([])
 plt.show()
+
+
+# import matplotlib.pyplot as plt
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+# for z, data in enumerate(contours_max):
+#     if z == 10:
+#         break
+#     for point in data:
+#         x = point[0]
+#         y = point[1]
+#         ax.scatter(x, y, z, marker='o')
+#
+# ax.set_xlabel('X Label')
+# ax.set_ylabel('Y Label')
+# ax.set_zlabel('Z Label')
+#
+# plt.show()
+
+
 
 # ## TODO Circle detection for future Rib Segmentation
 #
