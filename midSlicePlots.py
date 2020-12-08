@@ -18,6 +18,7 @@ from skimage.measure import compare_ssim
 import imutils
 #testGit
 
+
 def get_pixels_hu(scans):
     image = np.stack([s.pixel_array for s in scans])
     image = image.astype(np.int16)  # Set outside-of-scan pixels to 0
@@ -40,8 +41,9 @@ def get_pixels_hu(scans):
 def load_CT(ct_dir,files,slices):
     scan_ct_dir = os.listdir(ct_dir)
     skipcount = 0
+    print("loading: CT Scan")
+
     for file in scan_ct_dir:
-        print("loading: {}".format(file))
         files.append(pydicom.dcmread(ct_dir+file))
     for f in files:
         if hasattr(f, 'SliceLocation'):
@@ -105,19 +107,18 @@ def get_cor_mid_slice(slices):
     return cor_mid_slice_gray
 
 
-# def get_table_height(xy_plane):
-#     avg =0
-#     for row in range(xy_plane.shape[1], 0, -1):
-#         avg = np.mean(xy_plane[row], axis=0)
-#         print('row', row, 'avg', avg)
-#     if avg >= 30:
-#         height = row
-#     elif avg>30:
-#         break
-#     else:
-#         continue
-#
-#     return height
+def get_skin_cords(img_3d, slices_3d):
+    # get array with skin coordinates
+    contours_max = []
+    img_3d[int(get_img_shape(slices_3d)[1] - slices_3d[0].TableHeight):, :] = 0
+
+    for layer in range(get_img_shape(slices_F73J)[2]):
+        contours_slice = measure.find_contours(img3d[:, :, layer], 200)
+        x = max(contours_slice, key=len)
+        x = list(np.round(x * pxl_spacing[0]).astype(int))
+        contours_max.append(x)
+
+    return contours_max
 
 
 # load the DICOM files
@@ -128,23 +129,25 @@ SLICES = []
 SLICES2 = []
 SLICES3 = []
 CT_F73J = '/home/cesarpuga/CT-Scans/212418_GA403_F_73J/17300/3/'
-CT_M49J = '/home/cesarpuga/CT-Scans/416818_GA413_M_49J/18030/12/'
-CT_F79J = '/home/cesarpuga/CT-Scans/704619_GA427_M_70J/18344/3/'
+# CT_M49J = '/home/cesarpuga/CT-Scans/416818_GA413_M_49J/18030/12/'
+# CT_F79J = '/home/cesarpuga/CT-Scans/704619_GA427_M_70J/18344/3/'
 
 # load specific CT Scan
 slices_F73J = load_CT(CT_F73J, FILES, SLICES)
-slices_M49J = load_CT(CT_M49J, FILES2, SLICES2)
-slices_F79J = load_CT(CT_F79J, FILES3, SLICES3)
+# slices_M49J = load_CT(CT_M49J, FILES2, SLICES2)
+# slices_F79J = load_CT(CT_F79J, FILES3, SLICES3)
 
 # get pixel aspects, assuming all slices are the same
 ax_aspect, sag_aspect, cor_aspect = get_ct_aspects(slices_F73J)
-ax_aspect2, sag_aspect2, cor_aspect2 = get_ct_aspects(slices_M49J)
-ax_aspect3, sag_aspect3, cor_aspect3 = get_ct_aspects(slices_F79J)
+# ax_aspect2, sag_aspect2, cor_aspect2 = get_ct_aspects(slices_M49J)
+# ax_aspect3, sag_aspect3, cor_aspect3 = get_ct_aspects(slices_F79J)
 
 # # get 3D array and img_shape
 img3d = get_3d_array(slices_F73J)
 img_shape = get_img_shape(slices_F73J)
 print('img shape:', img_shape)
+hu_patient = get_pixels_hu(slices_F73J)
+print("hu patient shape: ", hu_patient.shape)
 #img3d2 = get_3d_array(sliceS2)
 #img_shape2 = get_img_shape(sliceS2)
 #
@@ -152,11 +155,20 @@ print('img shape:', img_shape)
 # imgA = img3d[img_shape[0]//2, :, :]
 # imgB = img3d2[img_shape2[0]//2, :, :]
 # imgC = img3d[:, img_shape[0]//2, :]
-imgC = img3d[:, :, 8] #img_shape[2]//2
-table_height = 330
-imgC[table_height:,:] = 0
+
+
+# get TABLE HEIGHT
+table_height = slices_F73J[0].TableHeight
+print('Table Heigth', table_height)
+imgC = img3d[:, :, 361] #img_shape[2]//2
+table_height2 = int(img_shape[1] - table_height)
+print('table height 2 ', table_height2)
+hu_patient[:, table_height2:, :] = -1000
+imgC[table_height2:, :] = 0
+hu_patient = np.flip(hu_patient, axis=1)
 #print('shape imC: ', imgC.shape[1])
-#
+
+
 # # np arrays to grayscale cv2 images
 # im = np.array(imgA*1).astype('uint8')
 # imA_gray = cv2.normalize(src=imgA, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
@@ -166,23 +178,23 @@ imC_gray = cv2.normalize(src=imgC, dst=None, alpha=0, beta=255, norm_type=cv2.NO
 # imC2_gray = cv2.normalize(src=imgC2, dst=None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8UC1)
 
 # get coronal mid slices
-test_mid_cor_slice_A = get_cor_mid_slice(slices_M49J)
+#test_mid_cor_slice_A = get_cor_mid_slice(slices_M49J)
 test_mid_cor_slice_B = get_cor_mid_slice(slices_F73J)
-test_mid_cor_slice_C = get_cor_mid_slice(slices_F79J)
+# test_mid_cor_slice_C = get_cor_mid_slice(slices_F79J)
 
 # SSIM score
-crop_imgA = test_mid_cor_slice_A[:, 100:700]
-crop_imgB = test_mid_cor_slice_B[:, 150:750]
-crop_imgC = test_mid_cor_slice_C[:, 150:750]
+# crop_imgA = test_mid_cor_slice_A[:, 100:700]
+# crop_imgB = test_mid_cor_slice_B[:, 150:750]
+# crop_imgC = test_mid_cor_slice_C[:, 150:750]
 
 # CA comparison
-(scoreCA, diffCA) = compare_ssim(crop_imgA, crop_imgB, full=True)
-diff = (diffCA * 255).astype("uint8")
-print("SSIM A-B: {}".format(scoreCA))
-# CB comparison
-(scoreCB, diffCB) = compare_ssim(crop_imgA, crop_imgC, full=True)
-diffCB = (diffCB * 255).astype("uint8")
-print("SSIM A-C: {}".format(scoreCB))
+# (scoreCA, diffCA) = compare_ssim(crop_imgA, crop_imgB, full=True)
+# diff = (diffCA * 255).astype("uint8")
+# print("SSIM A-B: {}".format(scoreCA))
+# # CB comparison
+# (scoreCB, diffCB) = compare_ssim(crop_imgA, crop_imgC, full=True)
+# diffCB = (diffCB * 255).astype("uint8")
+# print("SSIM A-C: {}".format(scoreCB))
 
 # Plot mid coronal slice
 # cv2.imshow("cropped", test_mid_cor_slice_B)
@@ -198,13 +210,13 @@ print("SSIM A-C: {}".format(scoreCB))
 
 # waits for user to press any key
 # (this is necessary to avoid Python kernel form crashing)
-cv2.waitKey(0)
+#cv2.waitKey(0)
 
 # closing all open windows
 
 # #get edges of image
-edges1 = img3d[img_shape[0]//3, :, :]
-edges2 = feature.canny(img3d[img_shape[0]//2, :, :], sigma=4)
+#edges1 = img3d[img_shape[0]//3, :, :]
+#edges2 = feature.canny(img3d[img_shape[0]//2, :, :], sigma=4)
 
 #plot 3 orthogonal slices
 # a1 = plt.subplot(2, 2, 1)
@@ -227,7 +239,7 @@ edges2 = feature.canny(img3d[img_shape[0]//2, :, :], sigma=4)
 
 ## Contour Finding: Skin
 
-contours = measure.find_contours(imgC, 200)
+contours = measure.find_contours(hu_patient[361, :, :], -750)
 #print('contours', contours)
 
 # remove table ALWAYS biggest contour
@@ -246,9 +258,10 @@ print("contourMax", contourMax_r)
 print("1st", contourMax_r[0, 0])
 # Display the image and plot all contours found
 fig, ax = plt.subplots()
-ax.imshow(imC_gray, cmap=plt.cm.gray)
+ax.imshow(hu_patient[361, :, :], cmap=plt.cm.gray)
 
-contours_max = []
+maxContours = get_skin_cords(hu_patient, slices_F73J)  #img3d
+print('ct max len', len(maxContours))
 
 # for layer in range(img_shape[2]):
 #     img3d[table_height:, :, layer] = 0
